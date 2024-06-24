@@ -61,7 +61,7 @@ auto encrypt_file(std::string filename) -> void {
 
     std::string plain = read_file(filename);
 
-    std::string cipher, recovered;
+    std::string cipher;
 
     CryptoPP::SecByteBlock key = decode_key("/+7dzLuqmYh3ZlVEMyIRAA==");
     CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
@@ -100,5 +100,47 @@ auto encrypt_file(std::string filename) -> void {
 auto encrypt(std::vector<std::string> files) -> void {
     for (const std::string file : files) {
         encrypt_file(file);
+    }
+}
+
+auto decrypt_file(std::string filename) -> void {
+    // code for CryptoPP from https://stackoverflow.com/a/15388182
+
+    std::string cipher = read_file(filename);
+
+    std::string decrypted;
+
+    CryptoPP::SecByteBlock key = decode_key("/+7dzLuqmYh3ZlVEMyIRAA==");
+    CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
+    memset(iv, 0x00, CryptoPP::AES::BLOCKSIZE);
+
+    CryptoPP::AES::Decryption aesDecryption(
+        key,
+        CryptoPP::AES::DEFAULT_KEYLENGTH
+    );
+    CryptoPP::CBC_Mode_ExternalCipher::Decryption cbcDecryption(
+        aesDecryption,
+        iv
+    );
+
+    CryptoPP::StreamTransformationFilter stfDecryptor(
+        cbcDecryption,
+        new CryptoPP::StringSink(decrypted)
+    );
+    stfDecryptor.Put(
+        reinterpret_cast<const unsigned char*>(cipher.c_str()),
+        cipher.size()
+    );
+    stfDecryptor.MessageEnd();
+
+    std::cout << "Decrypted Text (" << cipher.size() << " bytes) \n"
+              << decrypted << '\n';
+
+    write_file(filename, decrypted);
+}
+
+auto decrypt(std::vector<std::string> files) -> void {
+    for (const std::string file : files) {
+        decrypt_file(file);
     }
 }

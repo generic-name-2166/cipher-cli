@@ -13,7 +13,14 @@ auto main(int argc, char* argv[]) -> int {
     }
     Arguments args = value.value();
 
-    encrypt(args.files);
+    switch (args.action) {
+        case Action::Encrypt:
+            encrypt(args.files);
+            break;
+        case Action::Decrypt:
+            decrypt(args.files);
+            break;
+    }
 
     std::cout << "It runs" << std::endl;
     return 0;
