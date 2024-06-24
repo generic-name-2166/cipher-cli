@@ -4,16 +4,97 @@
 #include <string>
 #include <vector>
 
-auto encrypt_file(std::string filename) -> void {
+#include "cryptopp/aes.h"
+#include "cryptopp/base64.h"
+#include "cryptopp/modes.h"
+#include "cryptopp/rijndael.h"
+
+auto decode_key(std::string encoded) -> CryptoPP::SecByteBlock {
+    CryptoPP::SecByteBlock decoded;
+
+    CryptoPP::Base64Decoder decoder;
+    decoder.Put((CryptoPP::byte*)encoded.data(), encoded.size());
+    decoder.MessageEnd();
+    CryptoPP::word64 size = decoder.MaxRetrievable();
+    if (size && size <= SIZE_MAX) {
+        decoded.resize(size);
+        decoder.Get((CryptoPP::byte*)&decoded[0], decoded.size());
+    }
+
+    return decoded;
+}
+
+auto read_file(std::string filename) -> std::string {
     std::filesystem::path path = std::filesystem::path(filename);
-    std::fstream file(path, std::ios::binary | std::ios::in | std::ios::out);
+    std::ifstream file(path, std::ios::binary | std::ios::in);
 
     if (!file.is_open()) {
         std::cerr << "Couldn't open the specified file: " << filename << '\n';
-        return;
+        return "";
+    }
+
+    std::string contents = "";
+
+    std::vector<char> buffer(1024, 0);  // reads only 1024 bytes at a time
+    while (!file.eof()) {
+        file.read(buffer.data(), buffer.size());
+        std::streamsize size = file.gcount();
+        contents += {buffer.begin(), buffer.begin() + size};
     }
 
     file.close();
+
+    return contents;
+}
+
+auto write_file(std::string filename, std::string data) -> void {
+    std::filesystem::path path = std::filesystem::path(filename);
+    std::ofstream file(path, std::ios::binary | std::ios::out);
+
+    file.write(data.c_str(), data.size());
+
+    file.close();
+}
+
+auto encrypt_file(std::string filename) -> void {
+    // code for CryptoPP from https://stackoverflow.com/a/15388182
+
+    std::string plain = read_file(filename);
+
+    std::string cipher, recovered;
+
+    CryptoPP::SecByteBlock key = decode_key("/+7dzLuqmYh3ZlVEMyIRAA==");
+    CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
+    memset(iv, 0x00, CryptoPP::AES::BLOCKSIZE);
+
+    CryptoPP::AES::Encryption aesEncryption(
+        key,
+        CryptoPP::AES::DEFAULT_KEYLENGTH
+    );
+    CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption(
+        aesEncryption,
+        iv
+    );
+
+    CryptoPP::StreamTransformationFilter stfEncryptor(
+        cbcEncryption,
+        new CryptoPP::StringSink(cipher)
+    );
+    stfEncryptor.Put(
+        reinterpret_cast<const unsigned char*>(plain.c_str()),
+        plain.length()
+    );
+    stfEncryptor.MessageEnd();
+
+    std::cout << "Cipher Text (" << cipher.size() << " bytes)" << std::endl;
+
+    for (int i = 0; i < cipher.size(); i++) {
+        std::cout << "0x" << std::hex
+                  << (0xFF & static_cast<CryptoPP::byte>(cipher[i])) << ' ';
+    }
+    std::cout << '\n';
+
+    write_file(filename, cipher);
 }
 
 auto encrypt(std::vector<std::string> files) -> void {
