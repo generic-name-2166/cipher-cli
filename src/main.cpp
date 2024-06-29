@@ -15,13 +15,13 @@ auto main(int argc, char* argv[]) -> int {
 
     switch (args.action) {
         case Action::Encrypt:
-            encrypt(args.files);
+            encrypt(args.files, args.key);
             break;
         case Action::Decrypt:
-            decrypt(args.files);
+            decrypt(args.files, args.key);
             break;
     }
 
-    std::cout << "It runs" << std::endl;
+    std::cout << "Success" << std::endl;
     return 0;
 }
